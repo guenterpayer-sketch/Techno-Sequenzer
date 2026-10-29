@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sequenzer Terminal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Silkscreen:wght@700&display=swap">
+<style>
+/* Layout: Terminal-Konsole. Oben Transport und Oszilloskop, darunter Song-Übersicht und aktueller Takt, daneben (breit) bzw. darunter (schmal) der Code-Editor. */
+:root {
+  color-scheme: dark;
+  --bg: #090b10;
+  --panel: #0e1219;
+  --line: #1d2531;
+  --fg: #cfd8e4;
+  --dim: #667487;
+  --ok: #3fe0a8;
+  --bad: #ff6b6b;
+  --c-kick: #ffb23e;
+  --c-clap: #ff5fa2;
+  --c-hat: #4fd8e8;
+  --c-ohat: #3fe0a8;
+  --c-perc: #ff8a4c;
+  --c-bass: #9be15d;
+  --c-chords: #7d9bff;
+  --c-lead: #d77dff;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --pixel: "Silkscreen", "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.5 var(--mono);
+  padding-block: 16px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; }
+@media (min-width: 900px) { .wrap { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; } .head { grid-column: 1 / -1; } }
+.col { display: grid; gap: 16px; min-width: 0; }
+h1 { margin: 0; font: 700 clamp(22px, 5vw, 34px)/1.1 var(--pixel); letter-spacing: .06em; text-transform: uppercase; color: var(--ok); text-wrap: balance; }
+h1 span { color: var(--c-clap); }
+.sub { color: var(--dim); margin: 4px 0 0; }
+.bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-top: 14px; }
+button, select, textarea { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; }
+button, select { padding: 7px 12px; cursor: pointer; }
+button:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--c-hat); outline-offset: 2px; }
+#play { background: var(--ok); border-color: var(--ok); color: #04130d; font-weight: 700; min-width: 104px; }
+#play.on { background: var(--panel); color: var(--ok); }
+.pos { color: var(--dim); font-variant-numeric: tabular-nums; }
+.pos b { color: var(--fg); }
+label.sl { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+input[type=range] { accent-color: var(--ok); width: 110px; }
+.lab { font: 700 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); display: flex; gap: 10px; align-items: center; margin: 0 0 8px; }
+.lab::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 10px; min-width: 0; }
+#scope { display: block; width: 100%; height: 120px; border-radius: 2px; }
+.lvl { height: 4px; background: var(--line); margin-top: 8px; border-radius: 2px; overflow: hidden; }
+.lvl i { display: block; height: 100%; width: 100%; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, var(--ok) 0 70%, var(--c-kick) 70% 90%, var(--bad) 90%); }
+/* Song-Übersicht */
+.orow { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 3px; }
+.tn { color: var(--tc); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.obars { display: grid; gap: 2px; }
+.obars i { height: 12px; background: var(--tc); border-radius: 1px; }
+.obars i.cur { outline: 1px solid var(--fg); outline-offset: 1px; }
+/* aktueller Takt */
+.trow { display: grid; grid-template-columns: 56px repeat(16, minmax(0, 1fr)); gap: 2px; align-items: stretch; margin-bottom: 3px; }
+.tl { position: relative; padding: 3px 4px; border: 0; background: transparent; color: var(--tc); font-weight: 700; text-align: left; overflow: hidden; border-radius: 2px; }
+.tl .m { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--tc); transform-origin: left; transform: scaleX(0); }
+.c { text-align: center; font-size: 10px; line-height: 20px; height: 20px; overflow: hidden; background: #121823; color: var(--dim); border-radius: 2px; white-space: nowrap; }
+.c.q { background: #18202d; }
+.c.h { color: var(--tc); font-weight: 700; background: color-mix(in srgb, var(--tc) 16%, #121823); }
+.c.now { outline: 1px solid var(--fg); outline-offset: -1px; }
+.trow.muted { opacity: .3; }
+.trow.muted .tl { text-decoration: line-through; }
+.hint { color: var(--dim); margin: 8px 0 0; font-size: 12px; }
+/* Editor */
+#code { width: 100%; min-height: 380px; resize: vertical; padding: 10px; line-height: 1.55; tab-size: 2; white-space: pre; overflow: auto; background: #0a0d13; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+#status { margin: 8px 0 0; font-weight: 700; }
+#status.ok { color: var(--ok); }
+#status.bad { color: var(--bad); }
+#errs { margin: 6px 0 0; padding: 0; list-style: none; color: var(--bad); font-size: 12px; }
+#errs li { padding: 2px 0; overflow-wrap: anywhere; }
+details { margin-top: 10px; color: var(--dim); }
+summary { cursor: pointer; color: var(--fg); }
+details pre { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; color: var(--dim); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <h1>Sequenzer <span>Terminal</span></h1>
+    <p class="sub">Patterns als Text schreiben. Der Beat läuft weiter, jede Änderung greift sofort.</p>
+    <div class="bar">
+      <button id="play" type="button">▶ Start</button>
+      <span class="pos" id="pos">TAKT <b>-</b>/<b>-</b> · <b id="bpmv">-</b> BPM</span>
+      <label class="sl" for="master">Master <input id="master" type="range" min="0" max="100" value="80"></label>
+    </div>
+  </header>
+
+  <div class="col">
+    <section>
+      <h2 class="lab">Scope</h2>
+      <div class="box"><canvas id="scope" aria-label="Oszilloskop des Master-Signals"></canvas><div class="lvl"><i id="lvl"></i></div></div>
+    </section>
+    <section>
+      <h2 class="lab">Song</h2>
+      <div class="box" id="song"></div>
+    </section>
+    <section>
+      <h2 class="lab" id="barlab">Takt</h2>
+      <div class="box"><div id="bar"></div><p class="hint">Spurname antippen = stumm schalten.</p></div>
+    </section>
+  </div>
+
+  <section class="col">
+    <div>
+      <h2 class="lab">Code</h2>
+      <div class="box">
+        <div class="row">
+          <label for="tpl" class="pos">Vorlage</label>
+          <select id="tpl"></select>
+          <button id="load" type="button">Laden</button>
+          <button id="undo" type="button" hidden>↶ Vorheriger Text</button>
+        </div>
+        <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" aria-label="Song-Code"></textarea>
+        <p id="status" class="ok"></p>
+        <ul id="errs"></ul>
+        <details>
+          <summary>Syntax</summary>
+<pre>bpm 138          Tempo (60-200)
+swing 0.05       Shuffle (0-0.5)
+duck 0.55        Sidechain-Pumpen (0-1)
+bars 8           Songlänge erzwingen (sonst längste Spur)
+
+Spuren: kick clap hat ohat perc bass chords lead
+Eine Zeile pro Spur:  name: Takt | Takt | Takt
+Zeile mit "|" am Anfang setzt die Spur fort.
+Takte trennt "|". "*4" wiederholt, "-" ist ein leerer Takt.
+Spuren mit weniger Takten laufen im Kreis.
+
+Drums (16 Zeichen):  x normal, X Akzent, . Pause
+  kick: x...x...x...x... *8
+
+Noten (bass, lead), 16 Steps pro Takt:
+  A1 F#3 C5  = Note, "." = Pause
+  A1:2 = Dauer in Steps, .:4 = 4 Steps Pause
+  bass: . A1 A1 . . A1 A1 . . A1 A1 . . A1 A1 .
+
+Akkorde (chords): Am F#m7 C G7 Dsus4 Bdim Em7 Fmaj7 A5
+  chords: Am:16 | F:16 | C:16 | G:16
+
+Klang pro Spur:
+  wave bass saw     saw square sine tri
+  cut bass 300      Filter in Hz
+  vol hat 0.4       Lautstärke 0-1.5
+
+# Kommentar (mit Leerzeichen davor)
+
+Bei einem Fehler läuft die betroffene Spur mit dem
+letzten funktionierenden Stand weiter.</pre>
+        </details>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const STEPS = 16;
+
+  /* ---------- Spuren ---------- */
+  const TRACKS = {
+    kick:   { type: 'drum', vol: 1 },
+    clap:   { type: 'drum', vol: 0.8 },
+    hat:    { type: 'drum', vol: 0.5 },
+    ohat:   { type: 'drum', vol: 0.55 },
+    perc:   { type: 'drum', vol: 0.6 },
+    bass:   { type: 'note', vol: 0.9, wave: 'saw', cut: 300 },
+    chords: { type: 'chord', vol: 0.7, wave: 'saw', cut: 2400 },
+    lead:   { type: 'note', vol: 0.6, wave: 'square', cut: 4200 },
+  };
+  const ORDER = Object.keys(TRACKS);
+  const WAVES = { saw: 'sawtooth', square: 'square', sine: 'sine', tri: 'triangle' };
+
+  /* ---------- Parser ---------- */
+  const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const CHORDS = { '': [0, 4, 7], m: [0, 3, 7], '7': [0, 4, 7, 10], m7: [0, 3, 7, 10], maj7: [0, 4, 7, 11], sus4: [0, 5, 7], dim: [0, 3, 6], '5': [0, 7, 12] };
+  const pitchClass = (l, acc) => PC[l] + (acc === '#' ? 1 : acc === 'b' ? -1 : 0);
+
+  function parseNote(s) {
+    const m = /^([A-G])([#b]?)(\d)$/.exec(s);
+    if (!m) throw new Error('Unbekannte Note "' + s + '" (z. B. A1, F#3)');
+    return 12 * (+m[3] + 1) + pitchClass(m[1], m[2]);
+  }
+  function parseChord(s) {
+    const m = /^([A-G])([#b]?)(maj7|m7|sus4|dim|m|7|5|)$/.exec(s);
+    if (!m) throw new Error('Unbekannter Akkord "' + s + '" (z. B. Am, F#m7, C, G7)');
+    const root = 48 + ((pitchClass(m[1], m[2]) % 12) + 12) % 12;
+    return CHORDS[m[3]].map(i => root + i);
+  }
+
+  function emptyBar() {
+    return { slots: new Array(STEPS).fill(null), cells: new Array(STEPS).fill('·'), count: 0 };
+  }
+
+  function drumBar(body) {
+    const s = body.replace(/\s+/g, '');
+    if (!s) throw new Error('Leerer Takt (für eine Pause "-" schreiben)');
+    if (s.length > STEPS) throw new Error('Takt hat ' + s.length + ' Zeichen (max. 16)');
+    const bad = /[^xX.]/.exec(s);
+    if (bad) throw new Error('Ungültiges Zeichen "' + bad[0] + '" (erlaubt: x X .)');
+    const bar = emptyBar();
+    for (let i = 0; i < s.length; i++) {
+      const v = s[i] === 'X' ? 2 : s[i] === 'x' ? 1 : 0;
+      bar.slots[i] = v || null;
+      bar.cells[i] = v ? s[i] : '·';
+      if (v) bar.count++;
+    }
+    return bar;
+  }
+
+  function noteBar(type, body) {
+    if (!body) throw new Error('Leerer Takt (für eine Pause "-" schreiben)');
+    const bar = emptyBar();
+    let p = 0;
+    body.split(/\s+/).forEach(tok => {
+      const parts = tok.split(':');
+      const name = parts[0];
+      let dur = 1;
+      if (parts.length > 1) {
+        if (!/^\d+$/.test(parts[1]) || +parts[1] < 1) throw new Error('Ungültige Dauer in "' + tok + '"');
+        dur = +parts[1];
+      }
+      if (p + dur > STEPS) throw new Error('Takt hat mehr als 16 Steps (bei "' + tok + '")');
+      if (name !== '.') {
+        const midis = type === 'chord' ? parseChord(name) : [parseNote(name)];
+        bar.slots[p] = { midis, len: dur };
+        bar.cells[p] = name;
+        for (let k = 1; k < dur; k++) bar.cells[p + k] = '─';
+        bar.count++;
+      }
+      p += dur;
+    });
+    return bar;
+  }
+
+  function parseBars(type, text) {
+    const bars = [];
+    text.split('|').forEach(raw => {
+      let body = raw.trim();
+      let rep = 1;
+      const m = /\*\s*(\d+)\s*$/.exec(body);
+      if (m) {
+        rep = +m[1];
+        body = body.slice(0, m.index).trim();
+        if (rep < 1 || rep > 64) throw new Error('Wiederholung "*' + m[1] + '" muss zwischen 1 und 64 liegen');
+      }
+      const bar = body === '-' ? emptyBar() : (type === 'drum' ? drumBar(body) : noteBar(type, body));
+      for (let i = 0; i < rep; i++) bars.push(bar);
+    });
+    if (bars.length > 64) throw new Error('Mehr als 64 Takte in einer Spur');
+    return bars;
+  }
+
+  // prev: letzter funktionierender Stand. Fehlerhafte Zeilen behalten dort ihren alten Wert.
+  function parseSong(text, prev) {
+    const errors = [];
+    const err = (line, msg) => errors.push({ line, msg });
+    const S = { bpm: 130, swing: 0, duck: 0.55, bars: 0 };
+    const opts = {};
+    ORDER.forEach(n => { opts[n] = {}; });
+    const entries = [];
+    const seen = {};
+    let last = null;
+
+    const num = (a, lo, hi, label) => {
+      const v = Number(a);
+      if (a === undefined || !isFinite(v) || v < lo || v > hi) throw new Error(label + ' erwartet eine Zahl von ' + lo + ' bis ' + hi);
+      return v;
+    };
+
+    text.split('\n').forEach((raw, i) => {
+      const ln = i + 1;
+      const clean = raw.replace(/(^|\s)#.*$/, '').trim();
+      if (!clean) return;
+      if (clean[0] === '|') {
+        if (last) last.body += ' ' + clean;
+        else err(ln, 'Zeile beginnt mit "|", aber davor steht keine Spur');
+        return;
+      }
+      const t = /^([a-z]+)\s*:\s*(.*)$/.exec(clean);
+      if (t) {
+        const name = t[1];
+        last = null;
+        if (!TRACKS[name]) { err(ln, 'Unbekannte Spur "' + name + '" (erlaubt: ' + ORDER.join(', ') + ')'); return; }
+        if (seen[name]) { err(ln, 'Spur "' + name + '" steht schon in Zeile ' + seen[name]); return; }
+        seen[name] = ln;
+        last = { name, body: t[2], line: ln };
+        entries.push(last);
+        return;
+      }
+      last = null;
+      const [cmd, ...args] = clean.split(/\s+/);
+      try {
+        switch (cmd) {
+          case 'bpm': S.bpm = num(args[0], 60, 200, 'bpm'); break;
+          case 'swing': S.swing = num(args[0], 0, 0.5, 'swing'); break;
+          case 'duck': S.duck = num(args[0], 0, 1, 'duck'); break;
+          case 'bars': S.bars = Math.round(num(args[0], 1, 64, 'bars')); break;
+          case 'wave': case 'cut': case 'vol': {
+            const n = args[0];
+            if (!TRACKS[n]) throw new Error('Unbekannte Spur "' + n + '"');
+            if (cmd !== 'vol' && TRACKS[n].type === 'drum') throw new Error(cmd + ' gilt nur für bass, chords und lead');
+            if (cmd === 'wave') {
+              if (!WAVES[args[1]]) throw new Error('wave erwartet saw, square, sine oder tri');
+              opts[n].wave = args[1];
+            } else if (cmd === 'cut') opts[n].cut = num(args[1], 80, 12000, 'cut');
+            else opts[n].vol = num(args[1], 0, 1.5, 'vol');
+            break;
+          }
+          default: throw new Error('Unbekannte Anweisung "' + cmd + '"');
+        }
+      } catch (e) {
+        err(ln, e.message);
+        if (prev && Object.prototype.hasOwnProperty.call(S, cmd)) S[cmd] = prev[cmd];
+      }
+    });
+
+    const tracks = {};
+    entries.forEach(e => {
+      let bars = null;
+      try { bars = parseBars(TRACKS[e.name].type, e.body); }
+      catch (ex) {
+        err(e.line, '[' + e.name + '] ' + ex.message);
+        if (prev && prev.tracks[e.name]) bars = prev.tracks[e.name].bars;
+      }
+      if (!bars) return;
+      const d = TRACKS[e.name], o = opts[e.name];
+      tracks[e.name] = { type: d.type, bars, vol: o.vol ?? d.vol, wave: o.wave ?? d.wave, cut: o.cut ?? d.cut };
+    });
+    const lens = Object.keys(tracks).map(n => tracks[n].bars.length);
+    const song = { bpm: S.bpm, swing: S.swing, duck: S.duck, bars: S.bars, len: S.bars || Math.max(1, ...lens), tracks };
+    errors.sort((a, b) => a.line - b.line);
+    return { song, errors };
+  }
+
+  /* ---------- Klangerzeugung ---------- */
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+
+  class Synth {
+    constructor(ctx) {
+      this.ctx = ctx;
+      const len = ctx.sampleRate * 2;
+      this.noise = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = this.noise.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+
+      this.comp = ctx.createDynamicsCompressor();
+      this.comp.threshold.value = -14;
+      this.comp.knee.value = 18;
+      this.comp.ratio.value = 5;
+      this.comp.attack.value = 0.004;
+      this.comp.release.value = 0.18;
+      this.master = ctx.createGain();
+      this.master.gain.value = 0.8;
+      this.limit = ctx.createDynamicsCompressor();
+      this.limit.threshold.value = -2;
+      this.limit.knee.value = 0;
+      this.limit.ratio.value = 20;
+      this.limit.attack.value = 0.001;
+      this.limit.release.value = 0.05;
+      this.analyser = ctx.createAnalyser();
+      this.analyser.fftSize = 4096;
+      this.analyser.smoothingTimeConstant = 0;
+      this.comp.connect(this.master).connect(this.limit).connect(ctx.destination);
+      this.limit.connect(this.analyser);
+
+      // Delay (punktierte Achtel) für den Lead
+      this.dIn = ctx.createGain();
+      this.delay = ctx.createDelay(2);
+      const fb = ctx.createGain(); fb.gain.value = 0.38;
+      const tone = ctx.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 2800;
+      const wet = ctx.createGain(); wet.gain.value = 0.3;
+      this.dIn.connect(this.delay).connect(tone);
+      tone.connect(fb).connect(this.delay);
+      tone.connect(wet).connect(this.comp);
+      this.setBpm(130);
+      this.run = null;
+      this.depth = 0;
+    }
+
+    setBpm(b) { this.delay.delayTime.value = 60 / b * 0.75; }
+    setMaster(v) { this.master.gain.value = v; }
+
+    // Pro Start neue Busse, damit beim Stop alles sofort verstummt
+    newRun() {
+      this.stopRun();
+      const c = this.ctx;
+      this.mel = c.createGain(); this.dr = c.createGain(); this.send = c.createGain();
+      this.send.gain.value = 0.55;
+      this.mel.connect(this.comp); this.dr.connect(this.comp); this.send.connect(this.dIn);
+      this.run = [this.mel, this.dr, this.send];
+    }
+    stopRun() {
+      if (!this.run) return;
+      const t = this.ctx.currentTime, old = this.run;
+      old.forEach(g => { g.gain.cancelScheduledValues(t); g.gain.setTargetAtTime(0, t, 0.015); });
+      setTimeout(() => old.forEach(g => g.disconnect()), 400);
+      this.run = null;
+    }
+
+    _env(g, t, peak, decay) {
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+    }
+    _noise(t, dur) {
+      const s = this.ctx.createBufferSource();
+      s.buffer = this.noise;
+      s.start(t, Math.random(), dur);
+      return s;
+    }
+
+    drum(name, t, v) {
+      const c = this.ctx, out = this.dr;
+      if (name === 'kick') {
+        const o = c.createOscillator(), g = c.createGain();
+        o.frequency.setValueAtTime(170, t);
+        o.frequency.exponentialRampToValueAtTime(48, t + 0.1);
+        o.frequency.exponentialRampToValueAtTime(40, t + 0.4);
+        this._env(g, t, v, 0.45);
+        o.connect(g).connect(out); o.start(t); o.stop(t + 0.5);
+        const n = this._noise(t, 0.01), ng = c.createGain();
+        this._env(ng, t, 0.25 * v, 0.01);
+        n.connect(ng).connect(out);
+        if (this.depth > 0) {
+          this.mel.gain.setValueAtTime(1 - this.depth, t);
+          this.mel.gain.linearRampToValueAtTime(1, t + 0.2);
+        }
+      } else if (name === 'clap') {
+        const bp = c.createBiquadFilter(), g = c.createGain();
+        bp.type = 'bandpass'; bp.frequency.value = 1500; bp.Q.value = 1.2;
+        g.gain.setValueAtTime(0.0001, t);
+        [0, 0.011, 0.022].forEach(off => {
+          g.gain.setValueAtTime(0.0001, t + off);
+          g.gain.exponentialRampToValueAtTime(0.9 * v, t + off + 0.001);
+          g.gain.exponentialRampToValueAtTime(0.1 * v, t + off + 0.01);
+        });
+        g.gain.setValueAtTime(0.7 * v, t + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+        this._noise(t, 0.25).connect(bp).connect(g).connect(out);
+      } else if (name === 'hat' || name === 'ohat') {
+        const hp = c.createBiquadFilter(), g = c.createGain();
+        const dec = name === 'hat' ? 0.05 : 0.28;
+        hp.type = 'highpass'; hp.frequency.value = 7500;
+        this._env(g, t, 0.5 * v, dec);
+        this._noise(t, dec + 0.05).connect(hp).connect(g).connect(out);
+      } else if (name === 'perc') {
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(420, t);
+        o.frequency.exponentialRampToValueAtTime(210, t + 0.08);
+        this._env(g, t, 0.5 * v, 0.12);
+        o.connect(g).connect(out); o.start(t); o.stop(t + 0.15);
+      }
+    }
+
+    bass(t, m, dur, v, p) {
+      const c = this.ctx, f = mtof(m), end = t + Math.max(0.05, dur), cut = p.cut;
+      const o = c.createOscillator(), sub = c.createOscillator(), sg = c.createGain();
+      o.type = WAVES[p.wave]; o.frequency.value = f;
+      sub.type = 'sine'; sub.frequency.value = f; sg.gain.value = 0.5;
+      const lp = c.createBiquadFilter(), g = c.createGain();
+      lp.type = 'lowpass'; lp.Q.value = 8;
+      lp.frequency.setValueAtTime(Math.min(cut * 6, 9000), t);
+      lp.frequency.exponentialRampToValueAtTime(cut, t + 0.16);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.4 * v, t + 0.004);
+      g.gain.setValueAtTime(0.4 * v, end);
+      g.gain.exponentialRampToValueAtTime(0.0001, end + 0.05);
+      o.connect(lp).connect(g); sub.connect(sg).connect(g); g.connect(this.mel);
+      o.start(t); sub.start(t); o.stop(end + 0.06); sub.stop(end + 0.06);
+    }
+
+    chord(t, ms, dur, v, p) {
+      const c = this.ctx, end = t + Math.max(0.05, dur);
+      const lp = c.createBiquadFilter(), g = c.createGain();
+      lp.type = 'lowpass'; lp.frequency.value = p.cut; lp.Q.value = 0.7;
+      const peak = 0.2 * v / Math.sqrt(ms.length), atk = Math.min(0.03, dur * 0.3);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak, t + atk);
+      g.gain.setValueAtTime(peak, end);
+      g.gain.exponentialRampToValueAtTime(0.0001, end + 0.18);
+      lp.connect(g).connect(this.mel);
+      ms.forEach(m => [-9, 0, 9].forEach(det => {
+        const o = c.createOscillator();
+        o.type = WAVES[p.wave]; o.frequency.value = mtof(m); o.detune.value = det;
+        o.connect(lp); o.start(t); o.stop(end + 0.2);
+      }));
+    }
+
+    lead(t, m, dur, v, p) {
+      const c = this.ctx, f = mtof(m), end = t + Math.max(0.05, dur);
+      const lp = c.createBiquadFilter(), g = c.createGain();
+      lp.type = 'lowpass'; lp.Q.value = 1.5;
+      lp.frequency.setValueAtTime(Math.min(p.cut * 1.8, 12000), t);
+      lp.frequency.exponentialRampToValueAtTime(p.cut, t + 0.12);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16 * v, t + 0.004);
+      g.gain.setValueAtTime(0.16 * v, end);
+      g.gain.exponentialRampToValueAtTime(0.0001, end + 0.07);
+      lp.connect(g); g.connect(this.mel); g.connect(this.send);
+      [-7, 7].forEach(det => {
+        const o = c.createOscillator();
+        o.type = WAVES[p.wave]; o.frequency.value = f; o.detune.value = det;
+        o.connect(lp); o.start(t); o.stop(end + 0.08);
+      });
+    }
+  }
+
+  /* ---------- Planung eines Steps ---------- */
+  function stepTime(base, gstep, song) {
+    const dur = 60 / song.bpm / 4;
+    return base + gstep * dur + (gstep % 2 ? song.swing * dur : 0);
+  }
+
+  // Plant einen Step auf den Synth. Liefert die Namen der getroffenen Spuren.
+  function scheduleStep(song, gstep, t, synth, mutes) {
+    const bar = Math.floor(gstep / STEPS) % song.len, step = gstep % STEPS;
+    const dur = 60 / song.bpm / 4;
+    const hits = [];
+    synth.depth = song.duck;
+    ORDER.forEach(name => {
+      const tr = song.tracks[name];
+      if (!tr || mutes[name]) return;
+      const s = tr.bars[bar % tr.bars.length].slots[step];
+      if (!s) return;
+      hits.push(name);
+      if (tr.type === 'drum') synth.drum(name, t, (s === 2 ? 1 : 0.75) * tr.vol);
+      else if (tr.type === 'chord') synth.chord(t, s.midis, s.len * dur * 0.95, tr.vol, tr);
+      else if (name === 'bass') synth.bass(t, s.midis[0], s.len * dur * 0.95, tr.vol, tr);
+      else synth.lead(t, s.midis[0], s.len * dur * 0.95, tr.vol, tr);
+    });
+    return hits;
+  }
+
+  /* ---------- Vorlagen ---------- */
+  const TEMPLATES = {
+    'Trance · A-Moll · 138 BPM': `# TRANCE · A-Moll · 8 Takte (Am F C G)
+bpm 138
+duck 0.6
+
+kick:  x...x...x...x... *8
+clap:  - *2 | ....x.......x... *6
+hat:   .x.x.x.x.x.x.x.x *8
+ohat:  - | ..x...x...x...x. *7
+perc:  - *6 | ...x..x....x..x. | ...x..x....x..xx
+
+# rollender Bass auf den Grundtönen
+bass:  - *2
+  | . C2 C2 C2 . C2 C2 C2 . C2 C2 C2 . C2 C2 C2
+  | . G1 G1 G1 . G1 G1 G1 . G1 G1 G1 . G1 G1 G1
+  | . A1 A1 A1 . A1 A1 A1 . A1 A1 A1 . A1 A1 A1
+  | . F1 F1 F1 . F1 F1 F1 . F1 F1 F1 . F1 F1 F1
+  | . C2 C2 C2 . C2 C2 C2 . C2 C2 C2 . C2 C2 C2
+  | . G1 G1 G1 . G1 G1 G1 . G1 G1 G1 . G1 G1 G1
+
+chords: - *2 | C:16 | G:16 | Am:16 | F:16 | C:16 | G:16
+
+# Arpeggio ab Takt 5
+lead:  - *4
+  | A4 C5 E5 A5 E5 C5 E5 C5 A4 C5 E5 A5 E5 C5 E5 A5
+  | F4 A4 C5 F5 C5 A4 C5 A4 F4 A4 C5 F5 C5 A4 C5 F5
+  | C5 E5 G5 C6 G5 E5 G5 E5 C5 E5 G5 C6 G5 E5 G5 C6
+  | G4 B4 D5 G5 D5 B4 D5 B4 G4 B4 D5 G5 D5 B4 D5 G5
+
+wave lead square
+cut lead 3800
+vol chords 0.6
+`,
+    'Techno · E-Moll · 134 BPM': `# TECHNO · E-Moll · 8 Takte
+bpm 134
+swing 0.04
+duck 0.5
+
+kick:  x...x...x...x... *8
+clap:  - *2 | ....x.......x... *6
+hat:   - | .x.x.x.x.x.x.x.x *7
+ohat:  ..x...x...x...x. *8
+perc:  - *4 | ...x..x....x..x. *4
+
+# Acid-artige Basslinie, Takt 3-8
+bass:  - *2
+  | . E1 E1 . E2 E1 . E1 . E1 E1 . E2 E1 . G1 *2
+  | . E1 E1 . E2 E1 . E1 . E1 E1 . B1 G1 . A1
+  | . E1 E1 . E2 E1 . E1 . E1 E1 . E2 E1 . G1 *2
+  | . E1 E1 . E2 E1 . E1 . E1 E1 . B1 G1 . A1
+
+# Offbeat-Stabs ab Takt 5
+chords: - *4 | .:2 Em7 .:3 Em7 .:3 Em7 .:3 Em7 .:1 *4
+
+# hypnotisches Motiv ab Takt 6
+lead:  - *5 | B3 . . . G4 . . . B3 . . . D4 . . . *3
+
+wave bass saw
+cut bass 380
+cut chords 1800
+vol chords 0.55
+wave lead square
+cut lead 3000
+`,
+  };
+
+  /* ---------- App ---------- */
+  const $ = id => document.getElementById(id);
+  const css = getComputedStyle(document.documentElement);
+  const tcol = n => css.getPropertyValue('--c-' + n).trim() || '#888';
+  const code = $('code'), statusEl = $('status'), errsEl = $('errs');
+
+  let song = null;
+  let ctx = null, synth = null, timer = null, playing = false;
+  let gstep = 0, base = 0, nextTime = 0;
+  const mutes = {};
+  const queue = [];
+  const levels = {};
+  let curBar = 0, curStep = -1, rows = {}, oBlocks = {}, master = 0.8, masterLevel = 0;
+
+  function ensureAudio() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+      synth = new Synth(ctx);
+      synth.setMaster(master);
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+  }
+
+  function tick() {
+    const ahead = ctx.currentTime + 0.12;
+    while (nextTime < ahead) {
+      const hits = scheduleStep(song, gstep, nextTime, synth, mutes);
+      queue.push({ time: nextTime, gstep, hits });
+      if (queue.length > 256) queue.shift();
+      const dur = 60 / song.bpm / 4;
+      gstep++;
+      base += dur;
+      nextTime = base + (gstep % 2 ? song.swing * dur : 0);
+    }
+  }
+
+  function start() {
+    ensureAudio();
+    synth.newRun();
+    synth.setBpm(song.bpm);
+    gstep = 0;
+    base = ctx.currentTime + 0.06;
+    nextTime = base;
+    playing = true;
+    timer = setInterval(tick, 25);
+    tick();
+    $('play').textContent = '■ Stop';
+    $('play').classList.add('on');
+  }
+
+  function stop() {
+    playing = false;
+    clearInterval(timer);
+    if (synth) synth.stopRun();
+    queue.length = 0;
+    $('play').textContent = '▶ Start';
+    $('play').classList.remove('on');
+    clearStep();
+  }
+
+  /* --- Anzeige: Song-Übersicht --- */
+  function renderSong() {
+    const box = $('song');
+    box.textContent = '';
+    oBlocks = {};
+    ORDER.forEach(name => {
+      const tr = song.tracks[name];
+      if (!tr) return;
+      const row = document.createElement('div');
+      row.className = 'orow';
+      row.style.setProperty('--tc', tcol(name));
+      const n = document.createElement('span');
+      n.className = 'tn'; n.textContent = name;
+      const bars = document.createElement('div');
+      bars.className = 'obars';
+      bars.style.gridTemplateColumns = 'repeat(' + song.len + ', minmax(0, 1fr))';
+      oBlocks[name] = [];
+      for (let b = 0; b < song.len; b++) {
+        const i = document.createElement('i');
+        const bar = tr.bars[b % tr.bars.length];
+        i.style.opacity = bar.count ? (0.3 + 0.7 * Math.min(1, bar.count / 8)).toFixed(2) : '0.07';
+        bars.append(i);
+        oBlocks[name].push(i);
+      }
+      row.append(n, bars);
+      box.append(row);
+    });
+    if (!box.firstChild) box.textContent = 'Noch keine Spur im Code.';
+    markBar(curBar % song.len);
+  }
+
+  let markedBar = -1;
+  function markBar(b) {
+    Object.keys(oBlocks).forEach(n => {
+      if (oBlocks[n][markedBar]) oBlocks[n][markedBar].classList.remove('cur');
+      if (oBlocks[n][b]) oBlocks[n][b].classList.add('cur');
+    });
+    markedBar = b;
+  }
+
+  /* --- Anzeige: aktueller Takt --- */
+  function renderBarGrid() {
+    const box = $('bar');
+    box.textContent = '';
+    rows = {};
+    ORDER.forEach(name => {
+      const tr = song.tracks[name];
+      if (!tr) return;
+      const row = document.createElement('div');
+      row.className = 'trow' + (mutes[name] ? ' muted' : '');
+      row.style.setProperty('--tc', tcol(name));
+      const tl = document.createElement('button');
+      tl.type = 'button'; tl.className = 'tl'; tl.textContent = name;
+      tl.setAttribute('aria-pressed', mutes[name] ? 'true' : 'false');
+      const m = document.createElement('i'); m.className = 'm'; tl.append(m);
+      tl.onclick = () => {
+        mutes[name] = !mutes[name];
+        row.classList.toggle('muted', !!mutes[name]);
+        tl.setAttribute('aria-pressed', mutes[name] ? 'true' : 'false');
+      };
+      row.append(tl);
+      const cells = [];
+      for (let i = 0; i < STEPS; i++) {
+        const c = document.createElement('span');
+        c.className = 'c' + (i % 4 === 0 ? ' q' : '');
+        row.append(c); cells.push(c);
+      }
+      rows[name] = { cells, meter: m };
+      box.append(row);
+    });
+    showBar(curBar % song.len);
+  }
+
+  function showBar(b) {
+    ORDER.forEach(name => {
+      const tr = song.tracks[name], r = rows[name];
+      if (!tr || !r) return;
+      const bar = tr.bars[b % tr.bars.length];
+      for (let i = 0; i < STEPS; i++) {
+        r.cells[i].textContent = bar.cells[i];
+        r.cells[i].classList.toggle('h', !!bar.slots[i]);
+      }
+    });
+    $('barlab').textContent = 'Takt ' + (b + 1) + ' von ' + song.len;
+    markBar(b);
+  }
+
+  function setStep(s) {
+    if (curStep === s) return;
+    clearStep();
+    ORDER.forEach(n => { if (rows[n]) rows[n].cells[s].classList.add('now'); });
+    curStep = s;
+  }
+  function clearStep() {
+    if (curStep < 0) return;
+    ORDER.forEach(n => { if (rows[n]) rows[n].cells[curStep].classList.remove('now'); });
+    curStep = -1;
+  }
+
+  function updatePos() {
+    $('pos').innerHTML = 'TAKT <b>' + (curBar % song.len + 1) + '</b>/<b>' + song.len + '</b> · <b id="bpmv">' + song.bpm + '</b> BPM';
+  }
+
+  /* --- Scope --- */
+  const cv = $('scope'), g2 = cv.getContext('2d');
+  const buf = new Float32Array(4096);
+  function sizeScope() {
+    const r = window.devicePixelRatio || 1;
+    cv.width = Math.max(1, Math.round(cv.clientWidth * r));
+    cv.height = Math.max(1, Math.round(cv.clientHeight * r));
+  }
+  function drawScope(peakOut) {
+    const w = cv.width, h = cv.height, mid = h / 2;
+    g2.fillStyle = '#0a0d13';
+    g2.fillRect(0, 0, w, h);
+    g2.strokeStyle = '#1b2330'; g2.lineWidth = 1;
+    g2.beginPath();
+    for (let i = 1; i < 4; i++) { const y = Math.round(h * i / 4) + 0.5; g2.moveTo(0, y); g2.lineTo(w, y); }
+    for (let i = 1; i < 8; i++) { const x = Math.round(w * i / 8) + 0.5; g2.moveTo(x, 0); g2.lineTo(x, h); }
+    g2.stroke();
+    let peak = 0;
+    g2.strokeStyle = tcol('ohat'); g2.lineWidth = Math.max(1, Math.round((window.devicePixelRatio || 1)));
+    g2.beginPath();
+    if (synth) {
+      synth.analyser.getFloatTimeDomainData(buf);
+      const per = buf.length / w;
+      for (let x = 0; x < w; x++) {
+        let mn = 1, mx = -1;
+        const a = Math.floor(x * per), b = Math.floor((x + 1) * per);
+        for (let i = a; i < b; i++) { const v = buf[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+        peak = Math.max(peak, Math.abs(mn), Math.abs(mx));
+        g2.moveTo(x + 0.5, mid - mx * mid * 0.92);
+        g2.lineTo(x + 0.5, mid - mn * mid * 0.92 + 1);
+      }
+    } else { g2.moveTo(0, mid); g2.lineTo(w, mid); }
+    g2.stroke();
+    return peak;
+  }
+
+  let lastFrame = 0;
+  function frame(ts) {
+    const dt = Math.min(0.1, (ts - lastFrame) / 1000 || 0.016);
+    lastFrame = ts;
+    const peak = drawScope();
+    masterLevel = Math.max(peak, masterLevel - dt * 1.2);
+    $('lvl').style.transform = 'scaleX(' + Math.min(1, masterLevel).toFixed(3) + ')';
+    if (ctx && playing) {
+      const now = ctx.currentTime;
+      let ev = null;
+      while (queue.length && queue[0].time <= now) {
+        ev = queue.shift();
+        ev.hits.forEach(n => { levels[n] = 1; });
+      }
+      if (ev) {
+        const bar = Math.floor(ev.gstep / STEPS) % song.len;
+        if (bar !== curBar || markedBar !== bar) { curBar = bar; showBar(bar); updatePos(); }
+        setStep(ev.gstep % STEPS);
+      }
+    }
+    ORDER.forEach(n => {
+      if (!rows[n]) return;
+      levels[n] = Math.max(0, (levels[n] || 0) - dt * 3.5);
+      rows[n].meter.style.transform = 'scaleX(' + levels[n].toFixed(3) + ')';
+    });
+    requestAnimationFrame(frame);
+  }
+
+  /* --- Code anwenden --- */
+  function applyCode() {
+    const res = parseSong(code.value, song);
+    song = res.song;
+    errsEl.textContent = '';
+    res.errors.forEach(e => {
+      const li = document.createElement('li');
+      li.textContent = 'Zeile ' + e.line + ': ' + e.msg;
+      errsEl.append(li);
+    });
+    const n = Object.keys(song.tracks).length;
+    if (res.errors.length) {
+      statusEl.className = 'bad';
+      statusEl.textContent = '▲ ' + res.errors.length + (res.errors.length === 1 ? ' Fehler' : ' Fehler') + ' · betroffene Spuren laufen mit dem letzten guten Stand weiter';
+    } else {
+      statusEl.className = 'ok';
+      statusEl.textContent = '● ok · ' + n + ' Spuren · ' + song.len + ' Takte · ' + song.bpm + ' BPM';
+    }
+    if (synth) synth.setBpm(song.bpm);
+    if (curBar >= song.len) curBar = curBar % song.len;
+    renderSong();
+    renderBarGrid();
+    updatePos();
+    try { localStorage.setItem('seqterm.code', code.value); } catch (e) { /* optional */ }
+  }
+
+  let deb = null;
+  code.addEventListener('input', () => { clearTimeout(deb); deb = setTimeout(applyCode, 180); });
+
+  /* --- Bedienung --- */
+  let prevText = null;
+  function init() {
+    const sel = $('tpl');
+    Object.keys(TEMPLATES).forEach(n => sel.add(new Option(n, n)));
+    let saved = null;
+    try { saved = localStorage.getItem('seqterm.code'); } catch (e) { /* optional */ }
+    code.value = saved || TEMPLATES[sel.value];
+    $('load').onclick = () => {
+      prevText = code.value;
+      code.value = TEMPLATES[sel.value];
+      $('undo').hidden = false;
+      applyCode();
+    };
+    $('undo').onclick = () => {
+      if (prevText === null) return;
+      const cur = code.value;
+      code.value = prevText; prevText = cur;
+      applyCode();
+    };
+    $('play').onclick = () => (playing ? stop() : start());
+    $('master').oninput = e => { master = e.target.value / 100; if (synth) synth.setMaster(master); };
+    document.addEventListener('keydown', e => {
+      if (e.code === 'Space' && !/INPUT|SELECT|TEXTAREA|BUTTON/.test(document.activeElement.tagName)) {
+        e.preventDefault(); playing ? stop() : start();
+      }
+    });
+    new ResizeObserver(sizeScope).observe(cv);
+    sizeScope();
+    applyCode();
+    requestAnimationFrame(frame);
+  }
+
+  window.TS = { parseSong, Synth, scheduleStep, stepTime, TEMPLATES, ORDER };
+  init();
+})();
+</script>
+</body>
+</html>
