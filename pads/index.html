@@ -24,6 +24,7 @@
   --c-chords: #7d9bff;
   --c-lead: #d77dff;
   --c-fx: #eef2fa;
+  --c-prog: #7d9bff;
   --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --pixel: "Silkscreen", "JetBrains Mono", ui-monospace, Consolas, monospace;
 }
@@ -64,13 +65,13 @@ input[type=range] { accent-color: var(--ok); }
 .lab { font: 700 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); display: flex; gap: 10px; align-items: center; margin: 0 0 10px; }
 .lab::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .scroll { overflow-x: auto; padding-bottom: 6px; }
-.grid { display: grid; grid-template-columns: repeat(8, minmax(112px, 1fr)); gap: 10px; min-width: 0; }
-.col { display: grid; gap: 8px; align-content: start; --tc: var(--fg); }
-.ch { display: grid; gap: 6px; padding-bottom: 4px; border-bottom: 2px solid var(--tc); }
-.ch .t { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.grid { display: grid; grid-template-columns: repeat(9, minmax(112px, 1fr)); grid-template-rows: auto repeat(4, auto); gap: 8px 10px; min-width: 0; }
+.col { display: grid; grid-row: span 5; grid-template-rows: subgrid; gap: 8px; align-content: start; min-width: 0; --tc: var(--fg); }
+.ch { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 6px; padding-bottom: 4px; border-bottom: 2px solid var(--tc); }
+.ch .t { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; }
 .ch b { color: var(--tc); white-space: nowrap; }
 .ch button { padding: 3px 7px; font-size: 11px; }
-.ch input[type=range] { width: 100%; accent-color: var(--tc); }
+.ch input[type=range] { width: 100%; margin: 0; accent-color: var(--tc); }
 .pad {
   position: relative; display: grid; grid-template-rows: auto 1fr auto; gap: 6px; text-align: left;
   aspect-ratio: 1 / .78; max-width: 100%; padding: 8px; border: 1px solid color-mix(in srgb, var(--tc) 30%, var(--line));
@@ -87,14 +88,22 @@ input[type=range] { accent-color: var(--ok); }
 .pad.on { background: color-mix(in srgb, var(--tc) 20%, var(--panel)); border-color: var(--tc); box-shadow: 0 0 0 1px var(--tc), 0 0 22px -6px var(--tc); }
 .pad.q, .pad.qs { animation: blink .5s steps(2, jump-none) infinite; }
 @keyframes blink { 0% { border-color: var(--line); } 100% { border-color: var(--tc); } }
-.pad.fx .nm { white-space: normal; }
+.pad.fx .nm, .pad.pg .nm { white-space: normal; }
 .pad.fx.on { color: var(--bg); background: var(--tc); }
 .pad.fx.on .sub, .pad.fx.on .k { color: var(--bg); border-color: var(--bg); }
 .bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: var(--tc); transform-origin: left; transform: scaleX(0); }
 .hint { color: var(--dim); margin: 0; }
-.ch .t2 { display: flex; gap: 6px; align-items: center; }
-.ch select { flex: 1; min-width: 0; padding: 3px 4px; font-size: 11px; }
+.ch .t2 { display: flex; gap: 6px; align-items: start; }
+.snds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; flex: 1; min-width: 0; }
+.ch, .ch .t b { min-width: 0; }
+.ch .t b { overflow: hidden; text-overflow: ellipsis; }
+.snds button, .keys button { padding: 2px 3px; font-size: 10px; line-height: 1.5; border-color: color-mix(in srgb, var(--tc) 30%, var(--line)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snds button.on, .keys button.on { color: var(--bg); background: var(--tc); border-color: var(--tc); font-weight: 700; }
+.snds button.q, .keys button.q { animation: blink .5s steps(2, jump-none) infinite; }
+.keys { display: inline-flex; flex-wrap: wrap; gap: 3px; --tc: var(--c-chords); }
+.keys button { min-width: 30px; font-size: 11px; }
+@media (prefers-reduced-motion: reduce) { .snds button.q, .keys button.q { animation: none; border-style: dashed; border-color: var(--tc); } }
 .ch .star { padding: 3px 8px; font-size: 12px; }
 .ch .star.on { color: var(--bg); background: var(--tc); border-color: var(--tc); }
 .pad .nm .fv { color: var(--tc); margin-right: 4px; }
@@ -133,16 +142,15 @@ input[type=range] { accent-color: var(--ok); }
         <button id="play" type="button">▶ Start</button>
         <button id="rec" type="button">● Aufnehmen</button>
         <label for="style">Stil <select id="style"><option value="trance">Trance</option><option value="techno">Techno</option></select></label>
-        <label for="key">Tonart <select id="key"></select></label>
         <label for="bpm">BPM <input id="bpm" type="number" min="90" max="160" value="138"></label>
         <button id="rollAll" type="button">Alles neu würfeln</button>
-        <button id="rollProg" type="button">Akkorde würfeln</button>
         <label for="master">Master <input id="master" type="range" min="0" max="100" value="80"></label>
       </div>
       <div class="ctrl info">
         <span>Takt <b id="barNo">–</b></span>
         <span class="beats" id="beats"><i></i><i></i><i></i><i></i></span>
         <span>Akkorde <span class="prog" id="prog"></span></span>
+        <span id="keyWrap">Tonart (Moll) <span class="keys" id="keys" role="group" aria-label="Tonart"></span></span>
       </div>
     </div>
     <canvas id="scope" aria-label="Oszilloskop"></canvas>
@@ -167,7 +175,9 @@ input[type=range] { accent-color: var(--ok); }
   <p class="hint">Pad antippen oder Taste drücken: Loop startet am nächsten Takt, nochmal drücken stoppt ihn. Pro Spalte läuft immer eine Variante.
   „Würfeln“ ersetzt alle Varianten einer Spalte, die gerade nicht laufen. <kbd>Leertaste</kbd> = Start/Stop.
   Ablauf-Tipp: Break → Steigerung → automatischer Drop.
-  ★ merkt die Variante, die in der Spalte gerade läuft.</p>
+  ★ merkt die Variante, die in der Spalte gerade läuft.
+  Klang, Akkordfolge und Tonart wechseln wie die Loops erst am nächsten Takt.
+  Tastatur: <kbd>Umschalt</kbd>+<kbd>1</kbd>–<kbd>7</kbd> = nächster Klang der Spalte, <kbd>↑</kbd>/<kbd>↓</kbd> = Tonart einen Halbton höher/tiefer.</p>
 </div>
 
 <script>
@@ -178,15 +188,18 @@ input[type=range] { accent-color: var(--ok); }
   /* ---------- Musik-Grundlagen ---------- */
   const SCALE = [0, 2, 3, 5, 7, 8, 10]; // natürliches Moll
   const NOTE = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const NOTE_B = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+  const KEY_NAMES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B'];
+  const FLAT_KEYS = { 0: 1, 2: 1, 3: 1, 5: 1, 7: 1, 10: 1 }; // Moll-Tonarten mit b-Vorzeichen
   const QUAL = ['m', 'dim', '', 'm', 'm', '', '']; // Dreiklänge in Moll
   const deg2semi = d => SCALE[((d % 7) + 7) % 7] + 12 * Math.floor(d / 7);
-  const chordName = (key, d) => NOTE[(key + deg2semi(d)) % 12] + QUAL[((d % 7) + 7) % 7];
+  const chordName = (key, d) => (FLAT_KEYS[key] ? NOTE_B : NOTE)[(key + deg2semi(d)) % 12] + QUAL[((d % 7) + 7) % 7];
 
   const STYLE = {
     trance: { bpm: 138, swing: 0, duck: 0.6, lead: 'Saw',
-      progs: [[0, 5, 2, 6], [0, 5, 6, 4], [0, 3, 5, 6], [5, 6, 0, 0], [0, 6, 5, 6], [0, 2, 5, 6]] },
+      progs: [[0, 5, 2, 6], [0, 5, 6, 4], [0, 3, 5, 6], [5, 6, 0, 0], [0, 6, 5, 6], [0, 2, 5, 6], [5, 3, 0, 4], [0, 4, 5, 3]] },
     techno: { bpm: 132, swing: 0.03, duck: 0.5, lead: 'Square',
-      progs: [[0, 0, 0, 0], [0, 0, 5, 5], [0, 0, 0, 6], [0, 3, 0, 3], [0, 0, 3, 4]] },
+      progs: [[0, 0, 0, 0], [0, 0, 5, 5], [0, 0, 0, 6], [0, 3, 0, 3], [0, 0, 3, 4], [0, 6, 0, 5], [0, 0, 6, 6]] },
   };
 
   /* ---------- Klänge pro Spalte (erster Eintrag = Standard) ---------- */
@@ -374,16 +387,29 @@ input[type=range] { accent-color: var(--ok); }
   COLS.forEach(c => { COL[c.id] = c; });
 
   function makeState(style) {
-    const S = { style, key: 9, bpm: STYLE[style].bpm, prog: pick(STYLE[style].progs), cols: {}, cs: {},
-      fx: { build: null, buildQ: false, brk: false, brkQ: null, filter: false, echo: false } };
+    const S = { style, key: 9, keyQ: null, bpm: STYLE[style].bpm, progs: [pick(STYLE[style].progs).slice(), null, null, null], ps: { active: 0, queued: undefined },
+      cols: {}, cs: {}, fx: { build: null, buildQ: false, brk: false, brkQ: null, filter: false, echo: false } };
     COLS.forEach(c => {
       S.cols[c.id] = [];
-      S.cs[c.id] = { active: null, queued: undefined, vol: c.vol, snd: c.id === 'lead' ? STYLE[style].lead : Object.keys(SOUNDS[c.id])[0] };
+      S.cs[c.id] = { active: null, queued: undefined, vol: c.vol, snd: c.id === 'lead' ? STYLE[style].lead : Object.keys(SOUNDS[c.id])[0], sndQ: undefined };
       for (let r = 0; r < ROWS; r++) S.cols[c.id].push(null);
     });
     COLS.forEach(c => rollColumn(S, c));
+    rollProgs(S);
     return S;
   }
+
+  // Ersetzt alle Akkordfolgen, die gerade nicht laufen und nicht vorgemerkt sind.
+  function rollProgs(S) {
+    const ps = S.ps, key = p => p && p.join(',');
+    for (let r = 0; r < ROWS; r++) {
+      if (r === ps.active || r === ps.queued) continue;
+      const taken = S.progs.filter((p, i) => i !== r && p).map(key);
+      const free = STYLE[S.style].progs.filter(p => !taken.includes(key(p)));
+      S.progs[r] = pick(free.length ? free : STYLE[S.style].progs).slice();
+    }
+  }
+  const curProg = S => S.progs[S.ps.active];
 
   // Ersetzt alle Varianten einer Spalte, die gerade nicht laufen und nicht vorgemerkt sind.
   function rollColumn(S, c) {
@@ -417,19 +443,23 @@ input[type=range] { accent-color: var(--ok); }
 
   function packState(S) {
     const cs = {};
-    COLS.forEach(c => { const x = S.cs[c.id]; cs[c.id] = { active: x.active, queued: x.queued === undefined ? null : x.queued, vol: x.vol, snd: x.snd }; });
+    COLS.forEach(c => { const x = S.cs[c.id]; cs[c.id] = { active: x.active, queued: x.queued === undefined ? null : x.queued, vol: x.vol, snd: x.snd, sndQ: x.sndQ === undefined ? null : x.sndQ }; });
     const cols = {};
     COLS.forEach(c => { cols[c.id] = S.cols[c.id].map(s => packSlot(c, s)); });
     const f = S.fx;
-    return { style: S.style, key: S.key, bpm: S.bpm, prog: S.prog.slice(), cs, cols,
+    return { style: S.style, key: S.key, keyQ: S.keyQ, bpm: S.bpm, progs: S.progs.map(p => p.slice()),
+      ps: { active: S.ps.active, queued: S.ps.queued === undefined ? null : S.ps.queued }, cs, cols,
       fx: { build: f.build ? { start: f.build.start } : null, buildQ: f.buildQ, brk: f.brk, brkQ: f.brkQ } };
   }
   function unpackState(p) {
-    const S = { style: p.style, key: p.key, bpm: p.bpm, prog: p.prog.slice(), cols: {}, cs: {},
+    // Ältere Aufnahmen kennen nur eine Akkordfolge (prog)
+    const progs = p.progs ? p.progs.map(x => x.slice()) : [0, 1, 2, 3].map(() => p.prog.slice());
+    const ps = p.ps ? { active: p.ps.active, queued: p.ps.queued === null ? undefined : p.ps.queued } : { active: 0, queued: undefined };
+    const S = { style: p.style, key: p.key, keyQ: p.keyQ ?? null, bpm: p.bpm, progs, ps, cols: {}, cs: {},
       fx: { build: p.fx.build ? { start: p.fx.build.start } : null, buildQ: p.fx.buildQ, brk: p.fx.brk, brkQ: p.fx.brkQ, filter: false, echo: false } };
     COLS.forEach(c => {
       const x = p.cs[c.id];
-      S.cs[c.id] = { active: x.active, queued: x.queued === null ? undefined : x.queued, vol: x.vol, snd: x.snd };
+      S.cs[c.id] = { active: x.active, queued: x.queued === null ? undefined : x.queued, vol: x.vol, snd: x.snd, sndQ: x.sndQ == null ? undefined : x.sndQ };
       S.cols[c.id] = p.cols[c.id].map(q => unpackSlot(c, q));
     });
     return S;
@@ -739,6 +769,9 @@ input[type=range] { accent-color: var(--ok); }
       cs.active = cs.queued === 'stop' ? null : cs.queued;
       cs.queued = undefined;
     });
+    COLS.forEach(c => { const cs = S.cs[c.id]; if (cs.sndQ !== undefined) { cs.snd = cs.sndQ; cs.sndQ = undefined; } });
+    if (S.ps.queued !== undefined) { S.ps.active = S.ps.queued; S.ps.queued = undefined; }
+    if (S.keyQ !== null) { S.key = S.keyQ; S.keyQ = null; }
     if (fx.brkQ !== null) { fx.brk = fx.brkQ; fx.brkQ = null; }
     if (fx.build && bar >= fx.build.start + 4) {
       synth.impact(t);
@@ -756,7 +789,7 @@ input[type=range] { accent-color: var(--ok); }
     const bar = Math.floor(gstep / STEPS), step = gstep % STEPS;
     if (step === 0) barChanges(S, synth, bar, t);
     const dur = 60 / S.bpm / 4, fx = S.fx;
-    const chordDeg = S.prog[bar % S.prog.length];
+    const prog = curProg(S), chordDeg = prog[bar % prog.length];
     const b4 = fx.build ? bar - fx.build.start : -1;
     synth.depth = STYLE[S.style].duck;
     const hits = [];
@@ -797,6 +830,25 @@ input[type=range] { accent-color: var(--ok); }
     else cs.queued = r;
   }
 
+  // Akkordfolge, Tonart, Klang: gestoppt sofort, sonst am nächsten Takt
+  function applyProgPad(S, r, playing) {
+    const ps = S.ps;
+    if (!playing) { ps.active = r; ps.queued = undefined; }
+    else if (r === ps.active || r === ps.queued) ps.queued = undefined;
+    else ps.queued = r;
+  }
+  function applyKey(S, k, playing) {
+    k = ((k % 12) + 12) % 12;
+    if (!playing) { S.key = k; S.keyQ = null; }
+    else S.keyQ = k === S.key ? null : k;
+  }
+  function applySnd(S, col, name, playing) {
+    const cs = S.cs[col];
+    if (!SOUNDS[col][name]) return;
+    if (!playing) { cs.snd = name; cs.sndQ = undefined; }
+    else cs.sndQ = name === cs.snd ? undefined : name;
+  }
+
   // Liefert true, wenn sich etwas geändert hat.
   function applyFx(S, synth, r, down, playing, t) {
     const f = FX[r], fx = S.fx;
@@ -822,7 +874,11 @@ input[type=range] { accent-color: var(--ok); }
       case 'pad': applyPad(S, ev.c, ev.r, true); break;
       case 'fx': applyFx(S, synth, ev.r, ev.down, true, t); break;
       case 'roll': S.cols[ev.col] = ev.slots.map(p => unpackSlot(COL[ev.col], p)); break;
-      case 'prog': S.prog = ev.prog.slice(); break;
+      case 'prog': S.progs[S.ps.active] = ev.prog.slice(); break; // ältere Aufnahmen
+      case 'progs': S.progs = ev.progs.map(p => p.slice()); break;
+      case 'ppad': applyProgPad(S, ev.r, true); break;
+      case 'keyq': applyKey(S, ev.key, true); break;
+      case 'sndq': applySnd(S, ev.col, ev.name, true); break;
       case 'key': S.key = ev.key; break;
       case 'style': S.style = ev.style; break;
       case 'bpm': S.bpm = ev.bpm; if (synth) synth.setBpm(ev.bpm, t); break;
@@ -975,13 +1031,13 @@ input[type=range] { accent-color: var(--ok); }
   const tcol = n => css.getPropertyValue('--c-' + n).trim() || '#888';
 
   const KEYROWS = [
-    ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'],
-    ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI'],
-    ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK'],
-    ['KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM', 'Comma'],
+    ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9'],
+    ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO'],
+    ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK', 'KeyL'],
+    ['KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM', 'Comma', 'Period'],
   ];
   // Beschriftung nach deutschem Tastaturlayout (Y und Z vertauscht)
-  const keyLabel = code => ({ KeyY: 'Z', KeyZ: 'Y', Comma: ',' }[code] || code.replace(/^(Key|Digit)/, ''));
+  const keyLabel = code => ({ KeyY: 'Z', KeyZ: 'Y', Comma: ',', Period: '.' }[code] || code.replace(/^(Key|Digit)/, ''));
   const keyMap = {};
   KEYROWS.forEach((row, r) => row.forEach((code, c) => { keyMap[code] = { c, r }; }));
 
@@ -992,7 +1048,8 @@ input[type=range] { accent-color: var(--ok); }
   let gstep = 0, base = 0, nextTime = 0;
   const queue = [];
   const pads = {}; // "c:r" -> {el, nm, viz, cls}
-  const heads = {}; // colId -> {star, snd, vol}
+  const heads = {}; // colId -> {star, snds: {name: button}, vol}
+  const keyBtns = [];
   let rec = null;    // laufende Aufnahme
   let replay = null; // laufende Wiedergabe einer Aufnahme
 
@@ -1054,7 +1111,13 @@ input[type=range] { accent-color: var(--ok); }
     queue.length = 0;
     S.fx.filter = false; S.fx.echo = false;
     // Vorgemerktes sofort übernehmen, damit der nächste Start den sichtbaren Zustand spielt
-    COLS.forEach(c => { const cs = S.cs[c.id]; if (cs.queued !== undefined) { cs.active = cs.queued === 'stop' ? null : cs.queued; cs.queued = undefined; } });
+    COLS.forEach(c => {
+      const cs = S.cs[c.id];
+      if (cs.queued !== undefined) { cs.active = cs.queued === 'stop' ? null : cs.queued; cs.queued = undefined; }
+      if (cs.sndQ !== undefined) { cs.snd = cs.sndQ; cs.sndQ = undefined; }
+    });
+    if (S.ps.queued !== undefined) { S.ps.active = S.ps.queued; S.ps.queued = undefined; }
+    if (S.keyQ !== null) { S.key = S.keyQ; S.keyQ = null; }
     S.fx.build = null; S.fx.buildQ = false;
     if (S.fx.brkQ !== null) { S.fx.brk = S.fx.brkQ; S.fx.brkQ = null; }
     if (replay) endReplay();
@@ -1062,7 +1125,7 @@ input[type=range] { accent-color: var(--ok); }
     $('play').classList.remove('on');
     $('barNo').textContent = '–';
     [...$('beats').children].forEach(i => i.classList.remove('on'));
-    syncPads();
+    refreshProgPads(); renderProg(-1); syncPads();
   }
 
   /* --- Aufnahme --- */
@@ -1335,10 +1398,15 @@ input[type=range] { accent-color: var(--ok); }
       };
       t.append(b, roll);
       const t2 = document.createElement('div'); t2.className = 't2';
-      const snd = document.createElement('select');
-      snd.id = 'snd-' + col.id; snd.setAttribute('aria-label', col.name + ' Klang');
-      Object.keys(SOUNDS[col.id]).forEach(n => snd.add(new Option(n, n)));
-      snd.onchange = () => { S.cs[col.id].snd = snd.value; record({ type: 'snd', col: col.id, name: snd.value }); snd.blur(); };
+      const snd = document.createElement('div');
+      snd.className = 'snds'; snd.setAttribute('role', 'group'); snd.setAttribute('aria-label', col.name + ' Klang');
+      const sndBtns = {};
+      Object.keys(SOUNDS[col.id]).forEach(n => {
+        const bt = document.createElement('button');
+        bt.type = 'button'; bt.textContent = n; bt.title = n;
+        bt.onclick = () => pressSnd(col.id, n);
+        sndBtns[n] = bt; snd.append(bt);
+      });
       const star = document.createElement('button');
       star.type = 'button'; star.className = 'star'; star.textContent = '★';
       star.title = 'Laufende Variante merken';
@@ -1351,7 +1419,7 @@ input[type=range] { accent-color: var(--ok); }
       vol.oninput = () => { S.cs[col.id].vol = vol.value / 100; record({ type: 'vol', col: col.id, v: S.cs[col.id].vol }); };
       vol.onchange = () => vol.blur();
       ch.append(t, t2, vol);
-      heads[col.id] = { star, snd, vol };
+      heads[col.id] = { star, snds: sndBtns, vol };
       box.append(ch);
       for (let r = 0; r < ROWS; r++) {
         const el = document.createElement('button');
@@ -1394,7 +1462,56 @@ input[type=range] { accent-color: var(--ok); }
       box.append(el);
     });
     grid.append(box);
+    buildProgColumn(grid);
     COLS.forEach((col, c) => refreshColumn(c));
+  }
+
+  function buildProgColumn(grid) {
+    const box = document.createElement('div');
+    box.className = 'col';
+    box.style.setProperty('--tc', tcol('prog'));
+    const ch = document.createElement('div');
+    ch.className = 'ch';
+    const t = document.createElement('div'); t.className = 't';
+    const b = document.createElement('b'); b.textContent = 'Akkordfolge';
+    const roll = document.createElement('button');
+    roll.type = 'button'; roll.textContent = 'Würfeln';
+    roll.setAttribute('aria-label', 'Akkordfolgen neu würfeln');
+    roll.onclick = () => { if (replay) return; rollProgs(S); record({ type: 'progs', progs: S.progs }); refreshProgPads(); syncPads(); };
+    t.append(b, roll);
+    ch.append(t);
+    box.append(ch);
+    for (let r = 0; r < ROWS; r++) {
+      const el = document.createElement('button');
+      el.type = 'button'; el.className = 'pad pg';
+      const k = document.createElement('span'); k.className = 'k'; k.textContent = keyLabel(KEYROWS[r][8]);
+      const nm = document.createElement('span'); nm.className = 'nm';
+      const viz = document.createElement('span'); viz.className = 'viz';
+      const sp = [];
+      for (let i = 0; i < STEPS; i++) { const x = document.createElement('span'); viz.append(x); sp.push(x); }
+      el.append(k, nm, document.createElement('span'), viz);
+      el.addEventListener('click', () => pressProg(r));
+      pads['8:' + r] = { el, nm, viz: sp, cls: '' };
+      box.append(el);
+    }
+    grid.append(box);
+    refreshProgPads();
+  }
+
+  // Beschriftung der Akkordfolge-Pads (hängt von der Tonart ab)
+  function refreshProgPads() {
+    for (let r = 0; r < ROWS; r++) {
+      const p = pads['8:' + r], prog = S.progs[r];
+      const names = prog.map(d => chordName(S.key, d));
+      p.nm.textContent = names.join(' ');
+      p.el.title = names.join(' → ');
+      p.el.setAttribute('aria-label', 'Akkordfolge ' + names.join(', '));
+      p.viz.forEach((x, i) => {
+        const d = prog[Math.floor(i / 4)];
+        x.className = i % 4 === 3 ? '' : 'n';
+        x.style.height = (5 + Math.round((((d % 7) + 7) % 7) / 6 * 15)) + 'px';
+      });
+    }
   }
 
   function refreshColumn(c) {
@@ -1419,6 +1536,12 @@ input[type=range] { accent-color: var(--ok); }
         if (cs.active === r && cs.queued !== undefined) cls += ' qs';
         setCls(pads[c + ':' + r], cls);
       }
+      Object.keys(heads[col.id].snds).forEach(n => {
+        const bt = heads[col.id].snds[n];
+        bt.classList.toggle('on', cs.snd === n);
+        bt.classList.toggle('q', cs.sndQ === n);
+        bt.setAttribute('aria-pressed', cs.snd === n ? 'true' : 'false');
+      });
       const r = cs.queued !== undefined && cs.queued !== 'stop' ? cs.queued : cs.active;
       const isFav = r !== null && r !== undefined && favKeys[col.id] && favKeys[col.id].has(fingerprint(col, S.cols[col.id][r]));
       heads[col.id].star.classList.toggle('on', !!isFav);
@@ -1431,29 +1554,34 @@ input[type=range] { accent-color: var(--ok); }
       fx.echo ? ' on' : '',
     ];
     st.forEach((s, r) => setCls(pads['7:' + r], 'pad fx' + s));
+    for (let r = 0; r < ROWS; r++) setCls(pads['8:' + r], 'pad pg' + (S.ps.active === r ? ' on' : '') + (S.ps.queued === r ? ' q' : ''));
+    keyBtns.forEach((bt, k) => {
+      bt.classList.toggle('on', S.key === k);
+      bt.classList.toggle('q', S.keyQ === k);
+      bt.setAttribute('aria-pressed', S.key === k ? 'true' : 'false');
+    });
   }
 
   // Bedienelemente an den Zustand angleichen (nach Laden einer Aufnahme)
   function syncControls() {
     $('style').value = S.style;
-    $('key').value = S.key;
     $('bpm').value = S.bpm;
     COLS.forEach((col, c) => {
-      heads[col.id].snd.value = S.cs[col.id].snd;
       heads[col.id].vol.value = Math.round(S.cs[col.id].vol * 100);
       refreshColumn(c);
     });
+    refreshProgPads();
     renderProg(-1);
     syncPads();
   }
 
   function renderProg(cur) {
-    const el = $('prog');
-    if (el.childElementCount !== S.prog.length) {
+    const el = $('prog'), prog = curProg(S);
+    if (el.childElementCount !== prog.length) {
       el.textContent = '';
-      S.prog.forEach(() => el.append(document.createElement('span')));
+      prog.forEach(() => el.append(document.createElement('span')));
     }
-    S.prog.forEach((d, i) => {
+    prog.forEach((d, i) => {
       const sp = el.children[i];
       sp.textContent = chordName(S.key, d);
       sp.classList.toggle('on', i === cur);
@@ -1496,7 +1624,7 @@ input[type=range] { accent-color: var(--ok); }
       while (queue.length && queue[0].time <= now) e = queue.shift();
       if (e) {
         const bar = Math.floor(e.gstep / STEPS), beat = Math.floor((e.gstep % STEPS) / 4);
-        if (bar !== shownBar) { shownBar = bar; $('barNo').textContent = bar + 1; renderProg(bar % S.prog.length); syncPads(); }
+        if (bar !== shownBar) { shownBar = bar; $('barNo').textContent = bar + 1; renderProg(bar % 4); refreshProgPads(); syncPads(); }
         if (beat !== shownBeat) { shownBeat = beat; [...$('beats').children].forEach((i, k) => i.classList.toggle('on', k <= beat)); }
         const bb = S.fx.build ? Math.min(1, ((e.gstep / STEPS) - S.fx.build.start) / 4) : 0;
         $('buildBar').style.transform = 'scaleX(' + bb.toFixed(3) + ')';
@@ -1509,20 +1637,43 @@ input[type=range] { accent-color: var(--ok); }
 
   /* --- Steuerung --- */
   function rollAllAndProg() {
-    S.prog = pick(STYLE[S.style].progs.filter(p => p !== S.prog));
-    record({ type: 'prog', prog: S.prog });
+    rollProgs(S);
+    record({ type: 'progs', progs: S.progs });
     COLS.forEach((col, c) => {
       rollColumn(S, col); refreshColumn(c);
       record({ type: 'roll', col: col.id, slots: S.cols[col.id].map(s => packSlot(col, s)) });
     });
+    refreshProgPads(); renderProg(-1); syncPads();
+  }
+
+  /* --- Akkordfolge, Tonart, Klang --- */
+  function pressProg(r) {
+    if (replay) return;
+    applyProgPad(S, r, playing);
+    if (playing) record({ type: 'ppad', r });
     renderProg(-1); syncPads();
+  }
+  function pressKey(k) {
+    if (replay) return;
+    applyKey(S, k, playing);
+    if (playing) record({ type: 'keyq', key: ((k % 12) + 12) % 12 });
+    refreshProgPads(); renderProg(-1); syncPads();
+  }
+  function pressSnd(col, name) {
+    if (replay) return;
+    applySnd(S, col, name, playing);
+    if (playing) record({ type: 'sndq', col, name });
+    syncPads();
   }
 
   function init() {
-    const keySel = $('key');
-    NOTE.forEach((n, i) => keySel.add(new Option(n + '-Moll', i)));
-    keySel.value = S.key;
-    keySel.onchange = () => { S.key = +keySel.value; record({ type: 'key', key: S.key }); renderProg(-1); keySel.blur(); };
+    KEY_NAMES.forEach((n, k) => {
+      const bt = document.createElement('button');
+      bt.type = 'button'; bt.textContent = n;
+      bt.setAttribute('aria-label', n + '-Moll');
+      bt.onclick = () => pressKey(k);
+      keyBtns.push(bt); $('keys').append(bt);
+    });
     $('style').onchange = e => {
       S.style = e.target.value;
       record({ type: 'style', style: S.style });
@@ -1538,7 +1689,6 @@ input[type=range] { accent-color: var(--ok); }
     };
     $('bpm').onchange = e => e.target.blur();
     $('rollAll').onclick = rollAllAndProg;
-    $('rollProg').onclick = () => { S.prog = pick(STYLE[S.style].progs.filter(p => p !== S.prog)); record({ type: 'prog', prog: S.prog }); renderProg(-1); };
     $('master').oninput = e => { if (synth) synth.setMaster(e.target.value / 100); };
     $('master').onchange = e => e.target.blur();
     $('play').onclick = () => (playing ? stop() : start());
@@ -1551,11 +1701,25 @@ input[type=range] { accent-color: var(--ok); }
     document.addEventListener('keydown', e => {
       if (typing() || e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) (playing ? stop() : start()); return; }
+      if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+        e.preventDefault();
+        if (!e.repeat) pressKey((S.keyQ ?? S.key) + (e.code === 'ArrowUp' ? 1 : -1));
+        return;
+      }
       const k = keyMap[e.code];
       if (!k) return;
       e.preventDefault();
       if (e.repeat) return;
+      if (e.shiftKey) {
+        // Umschalt + Ziffer: nächster Klang dieser Spalte
+        if (k.r === 0 && k.c < COLS.length) {
+          const id = COLS[k.c].id, names = Object.keys(SOUNDS[id]), cur = S.cs[id].sndQ ?? S.cs[id].snd;
+          pressSnd(id, names[(names.indexOf(cur) + 1) % names.length]);
+        }
+        return;
+      }
       if (k.c === 7) { ensureAudio(); pressFx(k.r, true); }
+      else if (k.c === 8) pressProg(k.r);
       else pressLoop(k.c, k.r);
     });
     document.addEventListener('keyup', e => {
@@ -1576,7 +1740,7 @@ input[type=range] { accent-color: var(--ok); }
     requestAnimationFrame(frame);
   }
 
-  window.GP = { state: () => S, makeState, rollColumn, scheduleStep, Synth, COLS, STYLE, SOUNDS, noteFor, packState, unpackState, packSlot, unpackSlot,
+  window.GP = { state: () => S, rollProgs, makeState, rollColumn, scheduleStep, Synth, COLS, STYLE, SOUNDS, noteFor, packState, unpackState, packSlot, unpackSlot,
     renderTake, takeSeconds, wavBytes, zipOne, crc32, applyEvent, Store };
   init();
 })();
